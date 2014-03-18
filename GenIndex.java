@@ -307,7 +307,7 @@ public class GenIndex {
       sort_job.setOutputKeyClass(IntWritable.class);
       sort_job.setOutputValueClass(Text.class);
 
-      FileInputFormat.addInputPath(sort_job, new Path(tmpPath));
+      FileInputFormat.setInputPaths(sort_job, new Path(tmpPath));
       FileOutputFormat.setOutputPath(sort_job, new Path(stopWord));
       sort_job.waitForCompletion(true);
 
@@ -324,7 +324,7 @@ public class GenIndex {
       index_job.setOutputKeyClass(Text.class);
       index_job.setOutputValueClass(Text.class);
 
-      FileInputFormat.addInputPath(index_job, new Path(otherArgs[0]));
+      FileInputFormat.setInputPaths(index_job, new Path(otherArgs[0]));
       FileOutputFormat.setOutputPath(index_job, new Path(otherArgs[1]));
       index_job.waitForCompletion(true);
 

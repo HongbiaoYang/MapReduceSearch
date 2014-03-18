@@ -23,7 +23,6 @@ import java.util.ArrayList;
 
 import java.util.StringTokenizer;
 
-
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.*;
@@ -37,8 +36,6 @@ import org.apache.hadoop.util.GenericOptionsParser;
 
 
 public class GenIndex {
-
-
   // 1. separate the sentences into words, convert to lower case
   public static class Mapper1_Count
        extends Mapper<Object, Text, Text, IntWritable>{
@@ -82,6 +79,9 @@ public class GenIndex {
 
         public void map(Object key, Text value, Context context) throws IOException, InterruptedException {
             String line = value.toString();
+
+			System.out.println("Mapper2:"+line);
+
             StringTokenizer stringTokenizer = new StringTokenizer(line);
             {
                 int number = -1;
@@ -275,8 +275,11 @@ public class GenIndex {
       System.err.println("Usage: wordcount <in> <out>");
       System.exit(2);
     }
-    String tmpPath = "/user/hyang22/wordcount/tmp";
-    String stopWord = "/user/hyang22/wordcount/stopword";
+    //String tmpPath = "/user/hyang22/wordcount/tmp";
+    //String stopWord = "/user/hyang22/wordcount/stopword";
+
+    String tmpPath = "/local_scratch/wordcount/tmp";
+    String stopWord = "/local_scratch/wordcount/stopword";
 
     // Job to count the words
     Job count_job = new Job(conf, "word count");
@@ -292,6 +295,8 @@ public class GenIndex {
     FileOutputFormat.setOutputPath(count_job, new Path(tmpPath));
     count_job.waitForCompletion(true);
 
+	  System.out.println("Count Job finished!");
+
       // job to sort the words and output the stop word
       Job sort_job = new Job(conf, "word sort");
       sort_job.setJarByClass(GenIndex.class);
@@ -302,10 +307,12 @@ public class GenIndex {
       sort_job.setOutputKeyClass(IntWritable.class);
       sort_job.setOutputValueClass(Text.class);
 
-      FileInputFormat.addInputPath(sort_job, new Path(tmpPath));
+      FileInputFormat.setInputPaths(sort_job, new Path(tmpPath));
       FileOutputFormat.setOutputPath(sort_job, new Path(stopWord));
-
       sort_job.waitForCompletion(true);
+
+	  System.out.println("Sort Job finished!");
+
 
       // job to generate the index
       Job index_job = new Job(conf, "word index");
@@ -317,28 +324,16 @@ public class GenIndex {
       index_job.setOutputKeyClass(Text.class);
       index_job.setOutputValueClass(Text.class);
 
-      FileInputFormat.addInputPath(index_job, new Path(otherArgs[0]));
+      FileInputFormat.setInputPaths(index_job, new Path(otherArgs[0]));
       FileOutputFormat.setOutputPath(index_job, new Path(otherArgs[1]));
-
       index_job.waitForCompletion(true);
 
+	  System.out.println("Index Job finished!");
 
       System.exit(0);
 
   }
 }
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

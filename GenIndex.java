@@ -190,7 +190,8 @@ public class GenIndex {
         protected void setup(Context context) throws IOException, InterruptedException {
 
             stopWords = new ArrayList<String>();
-            BufferedReader br = new BufferedReader(new FileReader("/user/hyang22/wordcount/stopword/part-r-00000"));
+            // BufferedReader br = new BufferedReader(new FileReader("/user/hyang22/wordcount/stopword/part-r-00000"));
+            BufferedReader br = new BufferedReader(new FileReader("/local_scratch/wordcount/stopword/part-r-00000"));
             try {
                 StringBuilder sb = new StringBuilder();
                 String line = br.readLine();

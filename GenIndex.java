@@ -16,14 +16,16 @@
 
 
 import java.io.BufferedReader;
-import java.io.FileReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 
 import java.util.StringTokenizer;
 
+
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.*;
 import org.apache.hadoop.mapreduce.Job;
@@ -36,6 +38,13 @@ import org.apache.hadoop.util.GenericOptionsParser;
 
 
 public class GenIndex {
+
+    public static enum WORD_COUNTER {
+        STOP_WORD_COUNT,
+        WORD_SUM_COUNT,
+    };
+
+
   // 1. separate the sentences into words, convert to lower case
   public static class Mapper1_Count
        extends Mapper<Object, Text, Text, IntWritable>{
@@ -57,6 +66,7 @@ public class GenIndex {
   public static class Reducer1_Count
         extends  Reducer<Text, IntWritable, Text, IntWritable> {
       private IntWritable result = new IntWritable();
+      private int WordCount = 0;
 
       public void reduce(Text key, Iterable<IntWritable> values,
                          Context context) throws IOException, InterruptedException {
@@ -68,6 +78,8 @@ public class GenIndex {
           result.set(sum);
           context.write(key, result);
 
+          context.getCounter(WORD_COUNTER.WORD_SUM_COUNT).increment(1);
+//          System.out.println("sum=" + context.getCounter(WORD_COUNTER.WORD_SUM_COUNT).getValue());
       }
   }
 
@@ -79,9 +91,6 @@ public class GenIndex {
 
         public void map(Object key, Text value, Context context) throws IOException, InterruptedException {
             String line = value.toString();
-
-			System.out.println("Mapper2:"+line);
-
             StringTokenizer stringTokenizer = new StringTokenizer(line);
             {
                 int number = -1;
@@ -106,8 +115,11 @@ public class GenIndex {
                 context.write(new IntWritable(number), new Text(word));
 
                 WordSum++;
+                // context.getCounter(WORD_COUNTER.WORD_SUM_COUNT).increment(1);
             }
+
         }
+
     }
 
 
@@ -160,6 +172,9 @@ public class GenIndex {
 
             stopWords = new ArrayList<Text>();
 
+//            org.apache.hadoop.mapreduce.Counter s = context.getCounter(MATCH_COUNTER.PRUNING_BY_COUNT);
+//            System.out.println("cnt=" + context.getCounter(MATCH_COUNTER.PRUNING_BY_COUNT).getValue());
+            System.out.println("wordsum=" + context.getConfiguration().getLong("wordsum", -2));
         }
 
         public void reduce(IntWritable key, Iterable<Text> values,
@@ -190,8 +205,16 @@ public class GenIndex {
         protected void setup(Context context) throws IOException, InterruptedException {
 
             stopWords = new ArrayList<String>();
-            // BufferedReader br = new BufferedReader(new FileReader("/user/hyang22/wordcount/stopword/part-r-00000"));
-            BufferedReader br = new BufferedReader(new FileReader("/local_scratch/wordcount/stopword/part-r-00000"));
+
+            FileSystem fs = FileSystem.get(new Configuration());
+            String fsName = context.getConfiguration().get("fs.default.name");
+            fsName = fsName.concat("/local_scratch/wordcount/stopword/part-r-00000");
+            Path stopPath = new Path(fsName);
+            BufferedReader br = new BufferedReader(new InputStreamReader(fs.open(stopPath)));
+
+            System.out.println("path=" + stopPath);
+
+//            BufferedReader br = new BufferedReader(new FileReader("/user/hyang22/wordcount/stopword/part-r-00000"));
             try {
                 StringBuilder sb = new StringBuilder();
                 String line = br.readLine();
@@ -276,9 +299,6 @@ public class GenIndex {
       System.err.println("Usage: wordcount <in> <out>");
       System.exit(2);
     }
-    //String tmpPath = "/user/hyang22/wordcount/tmp";
-    //String stopWord = "/user/hyang22/wordcount/stopword";
-
     String tmpPath = "/local_scratch/wordcount/tmp";
     String stopWord = "/local_scratch/wordcount/stopword";
 
@@ -296,9 +316,6 @@ public class GenIndex {
     FileOutputFormat.setOutputPath(count_job, new Path(tmpPath));
     count_job.waitForCompletion(true);
 
-	  System.out.println("Count Job finished!");
-
-      // job to sort the words and output the stop word
       Job sort_job = new Job(conf, "word sort");
       sort_job.setJarByClass(GenIndex.class);
       sort_job.setMapperClass(Mapper2_Sort.class);
@@ -308,12 +325,11 @@ public class GenIndex {
       sort_job.setOutputKeyClass(IntWritable.class);
       sort_job.setOutputValueClass(Text.class);
 
-      FileInputFormat.setInputPaths(sort_job, new Path(tmpPath));
+
+      FileInputFormat.addInputPath(sort_job, new Path(tmpPath));
       FileOutputFormat.setOutputPath(sort_job, new Path(stopWord));
+
       sort_job.waitForCompletion(true);
-
-	  System.out.println("Sort Job finished!");
-
 
       // job to generate the index
       Job index_job = new Job(conf, "word index");
@@ -325,16 +341,26 @@ public class GenIndex {
       index_job.setOutputKeyClass(Text.class);
       index_job.setOutputValueClass(Text.class);
 
-      FileInputFormat.setInputPaths(index_job, new Path(otherArgs[0]));
+      FileInputFormat.addInputPath(index_job, new Path(otherArgs[0]));
       FileOutputFormat.setOutputPath(index_job, new Path(otherArgs[1]));
+
       index_job.waitForCompletion(true);
 
-	  System.out.println("Index Job finished!");
-
       System.exit(0);
-
   }
 }
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

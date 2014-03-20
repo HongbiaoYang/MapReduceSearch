@@ -15,9 +15,7 @@
 
 
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
+import java.io.*;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 
@@ -28,6 +26,7 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.*;
+import org.apache.hadoop.mapreduce.Counter;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.Reducer;
@@ -66,7 +65,6 @@ public class GenIndex {
   public static class Reducer1_Count
         extends  Reducer<Text, IntWritable, Text, IntWritable> {
       private IntWritable result = new IntWritable();
-      private int WordCount = 0;
 
       public void reduce(Text key, Iterable<IntWritable> values,
                          Context context) throws IOException, InterruptedException {
@@ -77,9 +75,6 @@ public class GenIndex {
 
           result.set(sum);
           context.write(key, result);
-
-          context.getCounter(WORD_COUNTER.WORD_SUM_COUNT).increment(1);
-//          System.out.println("sum=" + context.getCounter(WORD_COUNTER.WORD_SUM_COUNT).getValue());
       }
   }
 
@@ -115,11 +110,31 @@ public class GenIndex {
                 context.write(new IntWritable(number), new Text(word));
 
                 WordSum++;
-                // context.getCounter(WORD_COUNTER.WORD_SUM_COUNT).increment(1);
+//                context.getCounter(WORD_COUNTER.WORD_SUM_COUNT).increment(1);
+//                System.out.println("WordSumCount=" + context.getCounter(WORD_COUNTER.WORD_SUM_COUNT).getValue());
             }
-
         }
 
+        @Override
+        protected void cleanup(Context context) throws IOException, InterruptedException {
+            super.cleanup(context);
+//            System.out.println("Clean UP: WordSumCount=" + context.getCounter(WORD_COUNTER.WORD_SUM_COUNT).getValue());
+            System.out.println("Clean UP: WordSum=" + WordSum);
+
+            // get  file system and file name for stop words
+            FileSystem fs = FileSystem.get(context.getConfiguration());
+            String fsName = context.getConfiguration().get("fs.default.name");
+            fsName = fsName.concat("/local_scratch/wordcount/stopword/stop-word-count");
+            Path stopPath = new Path(fsName);
+
+            BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(fs.create(stopPath))) ;
+//            bw.write("Stop\t"+WordSum + "\n");
+            bw.write(String.valueOf(WordSum));
+
+            System.out.println("path=" + stopPath);
+
+            bw.close();
+        }
     }
 
 
@@ -144,25 +159,30 @@ public class GenIndex {
     public static class Reducer2_Sort
             extends  Reducer<IntWritable, Text, IntWritable, Text> {
 
-
         private int WordSum;
         private int StopWordCount;
         private int CurrentWordCount;
         private int StopWordRate;
 
-        public static ArrayList<Text> stopWords;
-
         // get the total number of words and calculate the count of the stop words
         protected void setup(Context context) throws  IOException{
 
             // get the total count of the words from the mapper step
-            try {
-                WordSum = Mapper2_Sort.class.getField("WordSum").getInt(null);
-            } catch (NoSuchFieldException e) {
-                System.out.println("err=" + e.toString());
-            } catch (IllegalAccessException e) {
-                System.out.println("err=" + e.toString());
-            }
+//            try {
+//                WordSum = Mapper2_Sort.class.getField("WordSum").getInt(null);
+//            } catch (NoSuchFieldException e) {
+//                System.out.println("err=" + e.toString());
+//            } catch (IllegalAccessException e) {
+//                System.out.println("err=" + e.toString());
+//            }
+
+            FileSystem fs = FileSystem.get(context.getConfiguration());
+            String fsName = context.getConfiguration().get("fs.default.name");
+            fsName = fsName.concat("/local_scratch/wordcount/stopword/stop-word-count");
+            Path stopPath = new Path(fsName);
+            BufferedReader br = new BufferedReader(new InputStreamReader(fs.open(stopPath)));
+
+            WordSum = Integer.parseInt(br.readLine());
 
             // number of stop words
             StopWordRate = 1;
@@ -170,19 +190,16 @@ public class GenIndex {
             CurrentWordCount = 0;
             System.out.println("Total:" + WordSum + ", Stop:" + StopWordCount);
 
-            stopWords = new ArrayList<Text>();
-
-//            org.apache.hadoop.mapreduce.Counter s = context.getCounter(MATCH_COUNTER.PRUNING_BY_COUNT);
-//            System.out.println("cnt=" + context.getCounter(MATCH_COUNTER.PRUNING_BY_COUNT).getValue());
-            System.out.println("wordsum=" + context.getConfiguration().getLong("wordsum", -2));
+//            Counter sumCounter = context.getCounter(WORD_COUNTER.WORD_SUM_COUNT);
+//            System.out.println("cnt=" + sumCounter.getValue() + " counter="+sumCounter);
         }
 
         public void reduce(IntWritable key, Iterable<Text> values,
                            Context context) throws IOException, InterruptedException {
+
             for (Text val: values) {
                 if (CurrentWordCount ++ < StopWordCount) {
                     context.write(key, val);
-                    stopWords.add(val);
                 }
                 else {
                     return;
@@ -206,15 +223,13 @@ public class GenIndex {
 
             stopWords = new ArrayList<String>();
 
-            FileSystem fs = FileSystem.get(new Configuration());
+            // get  file system and file name for stop words
+            FileSystem fs = FileSystem.get(context.getConfiguration());
             String fsName = context.getConfiguration().get("fs.default.name");
             fsName = fsName.concat("/local_scratch/wordcount/stopword/part-r-00000");
             Path stopPath = new Path(fsName);
             BufferedReader br = new BufferedReader(new InputStreamReader(fs.open(stopPath)));
 
-            System.out.println("path=" + stopPath);
-
-//            BufferedReader br = new BufferedReader(new FileReader("/user/hyang22/wordcount/stopword/part-r-00000"));
             try {
                 StringBuilder sb = new StringBuilder();
                 String line = br.readLine();
@@ -242,7 +257,7 @@ public class GenIndex {
 
         protected void map(Object key, Text value, Context context) throws IOException, InterruptedException {
             StringTokenizer itr = new StringTokenizer(value.toString().toLowerCase(), " !,.?:;'()*\t\n\"[]-/<>&#");
-            //System.out.println("Line#="+ lineNumber++ + ":"+value.toString() + " fname:"+fileName);
+
            String rWord;
            String rIndex;
            int position = 0;

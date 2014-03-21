@@ -98,6 +98,6 @@ public class SearchEngine {
 
         float elapseTime =  System.currentTimeMillis() - timeZero;
 
-        System.out.print("Results for "+key + ":\n\n"+ result + "(" + elapseTime + " milliseconds)");
+        System.out.println("Results for "+key + ":\n\n"+ result + "(" + elapseTime + " milliseconds)");
     }
 }

@@ -12,5 +12,7 @@ jar -cvf GenIndex.jar -C classes .
 #../bin/hadoop jar wordcount.jar org.myorg.WordCount /user/hyang22/wordcount/input /user/hyang22/wordcount/output
 ../bin/hadoop jar GenIndex.jar GenIndex /local_scratch/wordcount/input /local_scratch/wordcount/output
 #hadoop dfs -cp /user/hyang22/wordcount/output/part* output/
-#rm -rf index
+rm -rf index
 ../bin/hadoop dfs -get /local_scratch/wordcount/output/part-r-00000 index
+javac SearchEngine.java
+java -classpath . SearchEngine

@@ -51,7 +51,8 @@ public class SearchEngine {
 
         }
         catch (FileNotFoundException e) {
-            System.out.println("Error:" + e.toString());
+			System.out.println("Oops! The index file is missing! Make sure the file \"index\" is generated successfully!");
+			System.exit(0);
         }
         finally {
             br.close();

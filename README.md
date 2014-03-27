@@ -16,6 +16,8 @@ name, the line number, and offset of the word in the line.
 
 runHadoop.sh
 ---------------------------------------------------
+Please make sure to put the whole folder under the ${HADOOP_HOME} path! Otherwise it may fail
+because of not able to access "../bin/hadoop".
 To run the program, type "sh runHadoop.sh". It will make a directory under Hadoop file system
 /local_scratch/wordcount and put a folder "input/" containing series of text file as input 
 files into Hadoop file system under /local_scratch/wordcount. The source code is then compiled
